@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Mental Load Tracker</title>
+<title>Dashboard</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Alegreya+Sans:wght@400;500;700&display=swap">
 <style>
@@ -164,51 +164,21 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>Mental Load Tracker</h1>
+    <h1>Dashboard</h1>
     <div class="who" id="whoLbl"></div>
   </header>
   <div class="folkband" aria-hidden="true"></div>
 
-  <section class="balance" aria-label="Balance der letzten 30 Tage">
-    <div class="lbl"><span><span class="dot Eva"></span>Eva <b class="num" id="balE">–</b></span><span>Gezogenes Gewicht · 30 Tage</span><span>Brian <b class="num" id="balB">–</b><span class="dot Brian" style="margin:0 0 0 4px"></span></span></div>
-    <div class="bar"><span class="e" id="barE" style="width:50%"></span><span class="b" id="barB" style="width:50%"></span></div>
-  </section>
 
-  <nav class="tabs"><a href="#liste" id="tabListe">Liste</a><a href="#dashboard" id="tabDash">Dashboard</a></nav>
 
   <main id="viewListe">
     <div style="display:flex;flex-direction:column;gap:12px">
-      <div class="add">
-        <form id="addForm" autocomplete="off">
-          <input type="text" id="addInput" placeholder="z. B. Müll rausbringen 5min morgen" aria-label="Neue Aufgabe">
-          <button class="btn" type="submit">Anlegen</button>
-        </form>
-        <div class="chips" id="addChips" role="group" aria-label="Dauer"></div>
-        <div class="preview" id="addPreview">Tippen oder mit dem Mikrofon der Tastatur diktieren, z. B. „Bad putzen eine Stunde bis Freitag für Brian“</div>
-      </div>
       <div id="status"></div>
       <ul class="list" id="openList"></ul>
       <details id="doneBox"><summary id="doneSum">Erledigt</summary><ul class="list" id="doneList"></ul></details>
     </div>
   </main>
 
-  <main id="viewDash" hidden>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div class="grid2" id="loadCards"></div>
-      <div class="card chartcard">
-        <h2>Gezogenes Gewicht pro Woche</h2>
-        <div class="legend"><span><i style="background:var(--eva)"></i>Eva</span><span><i style="background:var(--brian)"></i>Brian</span></div>
-        <div id="chartWeeks"></div>
-      </div>
-      <div class="card how">
-        <h2 style="color:var(--ink)">So wird gerechnet</h2>
-        <p>Jede Aufgabe bekommt Punkte nach Dauer: 5 min = 1, 10 min = 2, 20 min = 3, 45 min = 5, 1 h = 8, 2 h = 13. Längeres lieber aufteilen.</p>
-        <p>Beim Abhaken werden die Punkte verteilt: ein Drittel an die Person, die die Aufgabe angelegt hat, zwei Drittel an die Person, die sie erledigt. Wer selbst anlegt und selbst erledigt, bekommt alles. Das ergibt das gezogene Gewicht.</p>
-        <p>Verzug: Erledigt die zuständige Person eine Aufgabe nach dem Fälligkeitstag, wandern pro Tag 10 % ihrer Erledigen-Punkte zur anlegenden Person, höchstens die Hälfte. Sie musste ja länger daran denken. Wer spontan einspringt, verliert nichts.</p>
-        <p>Überfällig zählt, was einer Person zugewiesen ist und nach dem Fälligkeitstag noch offen ist.</p>
-      </div>
-    </div>
-  </main>
 </div>
 
 <div id="sheetHost"></div>
@@ -318,13 +288,6 @@ function renderAddChips(){
   const dl=p.due?dueLabel(p.due).txt:'ohne Termin';
   const asg=p.who||me;$('addPreview').innerHTML='<b>'+esc(p.title||'…')+'</b> · '+stageFor(eff).l+' · '+esc(dl)+(me?' · von '+me:'')+(asg&&asg!==me?' für '+asg:'');
 }
-$('addInput').addEventListener('input',()=>{chosenMins=null;renderAddChips()});
-$('addForm').addEventListener('submit',async e=>{
-  e.preventDefault();const v=$('addInput').value.trim();if(!v)return;
-  const p=parse(v);const mins=chosenMins!=null?chosenMins:(p.mins!=null?stageFor(p.mins).m:10);
-  $('addInput').value='';chosenMins=null;renderAddChips();
-  try{await api('add',{title:p.title||v,mins,due:p.due,assignee:p.who||me})}catch(e){fail(e);$('addInput').value=v}
-});
 
 async function toggle(t){
   try{const j=await api('toggle',{id:t.id});
@@ -352,7 +315,7 @@ function bindRows(ul){ul.querySelectorAll('.task').forEach(li=>{const t=tasks.fi
 function renderList(){
   const open=tasks.filter(t=>!t.doneAt).sort((a,b)=>(a.due||'9999')<(b.due||'9999')?-1:(a.due||'9999')>(b.due||'9999')?1:b.createdAt-a.createdAt);
   const since=Date.now()-14*DAY;const done=tasks.filter(t=>t.doneAt&&t.doneAt>=since).sort((a,b)=>b.doneAt-a.doneAt);
-  $('openList').innerHTML=open.length?open.map(rowHTML).join(''):(ready?'<li class="empty">Nichts offen. Neue Aufgaben oben eintippen, z. B. „Kita-Anmeldung 20min bis Freitag“.</li>':'');
+  $('openList').innerHTML=open.length?open.map(rowHTML).join(''):(ready?'<li class="empty">Nichts offen. Neue Aufgaben schickst du einfach dem Bot.</li>':'');
   $('doneList').innerHTML=done.map(rowHTML).join('');
   $('doneSum').textContent='Erledigt in den letzten 14 Tagen ('+done.length+')';
   $('doneBox').hidden=!done.length;
@@ -420,14 +383,8 @@ function renderDash(){
   $('chartWeeks').innerHTML='<svg class="chart" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Gezogenes Gewicht pro Woche als Linien, Eva und Brian">'+grid(maxE)+labels+line('Eva')+line('Brian')+'</svg>';
 }
 
-function renderAll(){renderList();renderBalance();if(!$('viewDash').hidden)renderDash()}
-function route(){const d=location.hash==='#dashboard';$('viewListe').hidden=d;$('viewDash').hidden=!d;
-  $('tabListe').toggleAttribute('aria-current',!d);$('tabDash').toggleAttribute('aria-current',d);
-  if(d){$('tabDash').setAttribute('aria-current','page')}else{$('tabListe').setAttribute('aria-current','page')}
-  if(d)renderDash()}
-window.addEventListener('hashchange',route);
+function renderAll(){renderList()}
 
-renderAddChips();route();
 $('openList').innerHTML='<li class="empty">Liste wird geladen …</li>';
 if(TG){try{TG.ready();TG.expand();if(TG.colorScheme==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}}
 async function load(){try{await api('list');if($('status').dataset.sticky){delete $('status').dataset.sticky;$('status').innerHTML=''}}
