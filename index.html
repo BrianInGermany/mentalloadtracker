@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Mental Load Meter</title>
+<title>Mental Load Tracker</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Alegreya+Sans:wght@400;500;700&display=swap">
 <style>
@@ -164,7 +164,7 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>Mental Load Meter</h1>
+    <h1>Mental Load Tracker</h1>
     <div class="who" id="whoLbl"></div>
   </header>
   <div class="folkband" aria-hidden="true"></div>
@@ -186,10 +186,6 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
         <div class="chips" id="addChips" role="group" aria-label="Dauer"></div>
         <div class="preview" id="addPreview">Tippen oder mit dem Mikrofon der Tastatur diktieren, z. B. „Bad putzen eine Stunde bis Freitag für Brian“</div>
       </div>
-      <section class="quick" aria-labelledby="quickH">
-        <div class="quick-head"><h2 id="quickH">Schnell erledigt</h2><span class="meta">Ein Tipp: angelegt und erledigt</span></div>
-        <div class="quick-grid" id="quickGrid"></div>
-      </section>
       <div id="status"></div>
       <ul class="list" id="openList"></ul>
       <details id="doneBox"><summary id="doneSum">Erledigt</summary><ul class="list" id="doneList"></ul></details>
@@ -424,14 +420,14 @@ function renderDash(){
   $('chartWeeks').innerHTML='<svg class="chart" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Gezogenes Gewicht pro Woche als Linien, Eva und Brian">'+grid(maxE)+labels+line('Eva')+line('Brian')+'</svg>';
 }
 
-function renderAll(){renderList();renderQuick();renderBalance();if(!$('viewDash').hidden)renderDash()}
+function renderAll(){renderList();renderBalance();if(!$('viewDash').hidden)renderDash()}
 function route(){const d=location.hash==='#dashboard';$('viewListe').hidden=d;$('viewDash').hidden=!d;
   $('tabListe').toggleAttribute('aria-current',!d);$('tabDash').toggleAttribute('aria-current',d);
   if(d){$('tabDash').setAttribute('aria-current','page')}else{$('tabListe').setAttribute('aria-current','page')}
   if(d)renderDash()}
 window.addEventListener('hashchange',route);
 
-renderAddChips();renderQuick();route();
+renderAddChips();route();
 $('openList').innerHTML='<li class="empty">Liste wird geladen …</li>';
 if(TG){try{TG.ready();TG.expand();if(TG.colorScheme==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}}
 async function load(){try{await api('list');if($('status').dataset.sticky){delete $('status').dataset.sticky;$('status').innerHTML=''}}
