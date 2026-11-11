@@ -169,6 +169,8 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
   </header>
   <div class="folkband" aria-hidden="true"></div>
 
+  <nav class="tabs"><a href="#liste" id="tabListe">Aufgaben</a><a href="#grafik" id="tabDash">Grafik</a></nav>
+
 
 
   <main id="viewListe">
@@ -176,6 +178,24 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
       <div id="status"></div>
       <ul class="list" id="openList"></ul>
       <details id="doneBox"><summary id="doneSum">Erledigt</summary><ul class="list" id="doneList"></ul></details>
+    </div>
+  </main>
+
+  <main id="viewDash" hidden>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="grid2" id="loadCards"></div>
+      <div class="card chartcard">
+        <h2>Gezogenes Gewicht pro Woche</h2>
+        <div class="legend"><span><i style="background:var(--eva)"></i>Eva</span><span><i style="background:var(--brian)"></i>Brian</span></div>
+        <div id="chartWeeks"></div>
+      </div>
+      <div class="card how">
+        <h2 style="color:var(--ink)">So wird gerechnet</h2>
+        <p>Jede Aufgabe bekommt Punkte nach Dauer: 5 min = 1, 10 min = 2, 20 min = 3, 45 min = 5, 1 h = 8, 2 h = 13. Längeres lieber aufteilen.</p>
+        <p>Beim Abhaken werden die Punkte verteilt: ein Drittel an die Person, die die Aufgabe angelegt hat, zwei Drittel an die Person, die sie erledigt. Wer selbst anlegt und selbst erledigt, bekommt alles. Das ergibt das gezogene Gewicht.</p>
+        <p>Verzug: Erledigt die zuständige Person eine Aufgabe nach dem Fälligkeitstag, wandern pro Tag 10 % ihrer Erledigen-Punkte zur anlegenden Person, höchstens die Hälfte. Sie musste ja länger daran denken. Wer spontan einspringt, verliert nichts.</p>
+        <p>Überfällig zählt, was einer Person zugewiesen ist und nach dem Fälligkeitstag noch offen ist.</p>
+      </div>
     </div>
   </main>
 
@@ -383,8 +403,14 @@ function renderDash(){
   $('chartWeeks').innerHTML='<svg class="chart" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Gezogenes Gewicht pro Woche als Linien, Eva und Brian">'+grid(maxE)+labels+line('Eva')+line('Brian')+'</svg>';
 }
 
-function renderAll(){renderList()}
+function renderAll(){renderList();if(!$('viewDash').hidden)renderDash()}
+function route(){const d=location.hash==='#grafik';$('viewListe').hidden=d;$('viewDash').hidden=!d;
+  $('tabListe').removeAttribute('aria-current');$('tabDash').removeAttribute('aria-current');
+  (d?$('tabDash'):$('tabListe')).setAttribute('aria-current','page');
+  if(d)renderDash()}
+window.addEventListener('hashchange',route);
 
+route();
 $('openList').innerHTML='<li class="empty">Liste wird geladen …</li>';
 if(TG){try{TG.ready();TG.expand();if(TG.colorScheme==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}}
 async function load(){try{await api('list');if($('status').dataset.sticky){delete $('status').dataset.sticky;$('status').innerHTML=''}}
