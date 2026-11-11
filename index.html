@@ -159,6 +159,8 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
 .toast{display:flex;align-items:center;gap:12px}
 .toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:6px;padding:3px 9px;font-weight:700;font-size:13px}
 .chartcard{outline:none}
+.task .x{flex:none;border:0;background:transparent;color:var(--muted);font-size:18px;line-height:1;padding:4px 6px;border-radius:6px}
+.task .x.armed{background:var(--danger-soft);color:var(--danger);font-size:12px;font-weight:700}
 </style>
 </head>
 <body>
@@ -169,7 +171,7 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
   </header>
   <div class="folkband" aria-hidden="true"></div>
 
-  <nav class="tabs"><a href="#liste" id="tabListe">Aufgaben</a><a href="#grafik" id="tabDash">Grafik</a></nav>
+  <nav class="tabs"><a href="#liste" id="tabListe">Aufgaben</a><a href="#einkauf" id="tabShop">Einkauf</a><a href="#grafik" id="tabDash">Grafik</a></nav>
 
 
 
@@ -178,6 +180,13 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
       <div id="status"></div>
       <ul class="list" id="openList"></ul>
       <details id="doneBox"><summary id="doneSum">Erledigt</summary><ul class="list" id="doneList"></ul></details>
+    </div>
+  </main>
+
+  <main id="viewShop" hidden>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <ul class="list" id="shopOpen"></ul>
+      <details id="shopDoneBox"><summary id="shopDoneSum">Gekauft</summary><ul class="list" id="shopDone"></ul></details>
     </div>
   </main>
 
@@ -194,6 +203,7 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
         <p>Jede Aufgabe bekommt Punkte nach Dauer: 5 min = 1, 10 min = 2, 20 min = 3, 45 min = 5, 1 h = 8, 2 h = 13. Längeres lieber aufteilen.</p>
         <p>Beim Abhaken werden die Punkte verteilt: ein Drittel an die Person, die die Aufgabe angelegt hat, zwei Drittel an die Person, die sie erledigt. Wer selbst anlegt und selbst erledigt, bekommt alles. Das ergibt das gezogene Gewicht.</p>
         <p>Verzug: Erledigt die zuständige Person eine Aufgabe nach dem Fälligkeitstag, wandern pro Tag 10 % ihrer Erledigen-Punkte zur anlegenden Person, höchstens die Hälfte. Sie musste ja länger daran denken. Wer spontan einspringt, verliert nichts.</p>
+        <p>Einkaufsliste: je Artikel 0,5 P für die Person, die ihn einträgt, und 0,5 P für die Person, die ihn kauft.</p>
         <p>Überfällig zählt, was einer Person zugewiesen ist und nach dem Fälligkeitstag noch offen ist.</p>
       </div>
     </div>
@@ -209,7 +219,7 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
 const STAGES=[{m:5,p:1,l:'5 min'},{m:10,p:2,l:'10 min'},{m:20,p:3,l:'20 min'},{m:45,p:5,l:'45 min'},{m:60,p:8,l:'1 h'},{m:120,p:13,l:'2 h'}];
 const PEOPLE=['Eva','Brian'];
 const DAY=864e5;
-let tasks=[],me=null,chosenMins=null,ready=false;
+let all=[],tasks=[],shop=[],me=null,chosenMins=null,ready=false;
 const API='https://qjniptgvlmonzcguvyob.supabase.co/functions/v1/bot/api';
 const TG=window.Telegram&&window.Telegram.WebApp;
 const initData=TG?TG.initData:'';
@@ -217,7 +227,7 @@ async function api(action,data){
   const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({initData,action,...(data||{})})});
   const j=await r.json().catch(()=>({error:'Keine Antwort vom Server.'}));
   if(!r.ok)throw new Error(j.error||'Fehler '+r.status);
-  me=j.me;tasks=j.tasks;ready=true;renderWho();renderAll();return j;
+  me=j.me;all=j.tasks;tasks=all.filter(t=>t.kind!=='shop');shop=all.filter(t=>t.kind==='shop');ready=true;renderWho();renderAll();return j;
 }
 function fail(e){toast(e&&e.message?e.message:'Das hat nicht geklappt.')}
 const $=id=>document.getElementById(id);
@@ -273,6 +283,7 @@ function dueLabel(due){
 function asg(t){return t.assignee||t.createdBy}
 function lateDays(t,ts){if(!t.due)return 0;const d=new Date(ts);d.setHours(0,0,0,0);return Math.max(0,Math.round((d-parseDay(t.due))/DAY))}
 function credit(t){const r={Eva:0,Brian:0};if(!t.doneAt||!t.doneBy)return r;
+  if(t.kind==='shop'){if(r[t.createdBy]!=null)r[t.createdBy]+=.5;if(r[t.doneBy]!=null)r[t.doneBy]+=.5;return r}
   if(t.doneBy===t.createdBy){r[t.doneBy]+=t.pts;return r}
   const c=t.pts/3,d=t.pts*2/3,sh=t.doneBy===asg(t)?Math.min(.5,.1*lateDays(t,t.doneAt))*d:0;
   if(r[t.createdBy]!=null)r[t.createdBy]+=c+sh;if(r[t.doneBy]!=null)r[t.doneBy]+=d-sh;return r}
@@ -311,7 +322,7 @@ function renderAddChips(){
 
 async function toggle(t){
   try{const j=await api('toggle',{id:t.id});
-    if(j.credit){const c=j.credit;toast('Erledigt · '+PEOPLE.filter(p=>c[p]>0).map(p=>p+' +'+fmt(c[p])+' P').join(', '))}}
+    if(j.credit){const c=j.credit;toast((t.kind==='shop'?'Gekauft · ':'Erledigt · ')+PEOPLE.filter(p=>c[p]>0).map(p=>p+' +'+fmt(c[p])+' P').join(', '))}}
   catch(e){fail(e)}
 }
 function strip(t){const {id,...r}=t;return r}
@@ -376,7 +387,7 @@ function openSheet(t){
 
 function weekStart(ts){const d=new Date(ts);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()}
 function kw(ts){const d=new Date(ts);d.setHours(0,0,0,0);d.setDate(d.getDate()+3-((d.getDay()+6)%7));const w1=new Date(d.getFullYear(),0,4);return 1+Math.round(((d-w1)/DAY-3+((w1.getDay()+6)%7))/7)}
-function earned(from,to){const r={Eva:0,Brian:0};for(const t of tasks){
+function earned(from,to){const r={Eva:0,Brian:0};for(const t of all){
   if(t.doneAt&&t.doneAt>=from&&t.doneAt<to){const c=credit(t);r.Eva+=c.Eva;r.Brian+=c.Brian}}return r}
 function nice(v){if(v<=5)return 5;const p=Math.pow(10,Math.floor(Math.log10(v)));for(const k of [1,2,2.5,5,10])if(k*p>=v)return k*p;return 10*p}
 
@@ -403,11 +414,33 @@ function renderDash(){
   $('chartWeeks').innerHTML='<svg class="chart" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Gezogenes Gewicht pro Woche als Linien, Eva und Brian">'+grid(maxE)+labels+line('Eva')+line('Brian')+'</svg>';
 }
 
-function renderAll(){renderList();if(!$('viewDash').hidden)renderDash()}
-function route(){const d=location.hash==='#grafik';$('viewListe').hidden=d;$('viewDash').hidden=!d;
-  $('tabListe').removeAttribute('aria-current');$('tabDash').removeAttribute('aria-current');
-  (d?$('tabDash'):$('tabListe')).setAttribute('aria-current','page');
-  if(d)renderDash()}
+function shopRow(t){
+  const d=t.doneAt?new Date(t.doneAt):null;
+  const when=d?(Math.round((today0()-new Date(t.doneAt).setHours(0,0,0,0))/DAY)===0?'heute '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'):d.getDate()+'.'+(d.getMonth()+1)+'.'):'';
+  const meta='<span><span class="dot '+t.createdBy+'"></span>'+t.createdBy+'</span>'+(t.doneAt?'<span aria-hidden="true">·</span><span>gekauft von <span class="dot '+t.doneBy+'"></span>'+t.doneBy+' · '+when+'</span>':'');
+  return '<li class="task'+(t.doneAt?' done':'')+'" data-id="'+esc(t.id)+'">'+
+    '<button class="check" aria-label="'+(t.doneAt?'Wieder auf die Liste':'Als gekauft markieren')+'"><svg viewBox="0 0 16 16" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></button>'+
+    '<div class="body" style="cursor:default"><span class="t">'+esc(t.title)+'</span><span class="meta">'+meta+'</span></div>'+
+    '<button class="x" aria-label="Entfernen: '+esc(t.title)+'">×</button></li>';
+}
+function bindShop(ul){ul.querySelectorAll('.task').forEach(li=>{const t=shop.find(x=>x.id===li.dataset.id);if(!t)return;
+  li.querySelector('.check').onclick=()=>toggle(t);
+  const x=li.querySelector('.x');x.onclick=async()=>{if(!x.classList.contains('armed')){x.classList.add('armed');x.textContent='Löschen?';setTimeout(()=>{x.classList.remove('armed');x.textContent='×'},3000);return}
+    try{await api('delete',{id:t.id});toast('Entfernt')}catch(e){fail(e)}}})}
+function renderShop(){
+  const open=shop.filter(t=>!t.doneAt).sort((a,b)=>a.createdAt-b.createdAt);
+  const since=Date.now()-7*DAY;const done=shop.filter(t=>t.doneAt&&t.doneAt>=since).sort((a,b)=>b.doneAt-a.doneAt);
+  $('shopOpen').innerHTML=open.length?open.map(shopRow).join(''):(ready?'<li class="empty">Die Einkaufsliste ist leer. Schick dem Bot z. B. „Einkaufsliste Milch, Eier und Brot“.</li>':'');
+  $('shopDone').innerHTML=done.map(shopRow).join('');
+  $('shopDoneSum').textContent='Gekauft in den letzten 7 Tagen ('+done.length+')';
+  $('shopDoneBox').hidden=!done.length;
+  bindShop($('shopOpen'));bindShop($('shopDone'));
+}
+function renderAll(){renderList();renderShop();if(!$('viewDash').hidden)renderDash()}
+function route(){const v=location.hash==='#grafik'?'Dash':location.hash==='#einkauf'?'Shop':'Liste';
+  for(const k of ['Liste','Shop','Dash']){$('view'+k).hidden=k!==v;$('tab'+k).removeAttribute('aria-current')}
+  $('tab'+v).setAttribute('aria-current','page');
+  if(v==='Dash')renderDash()}
 window.addEventListener('hashchange',route);
 
 route();
