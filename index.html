@@ -45,6 +45,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:17px;margin:0}
 .seg button{border:0;background:transparent;padding:5px 12px;border-radius:999px;font-weight:600;font-size:14px;color:var(--muted)}
 .seg button[aria-pressed="true"].eva{background:var(--eva);color:#fff}
 .seg button[aria-pressed="true"].brian{background:var(--brian);color:#fff}
+.seg button[aria-pressed="true"].beide{background:linear-gradient(90deg,var(--eva) 50%,var(--brian) 50%);color:#fff}
 .balance{display:flex;flex-direction:column;gap:6px}
 .balance .lbl{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
 .balance .lbl b{color:var(--ink);font-weight:600}
@@ -122,7 +123,7 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
   mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='14' viewBox='0 0 32 14'%3E%3Cpath d='M16 1l5.5 6L16 13l-5.5-6z'/%3E%3Ccircle cx='4' cy='7' r='1.8'/%3E%3Ccircle cx='28' cy='7' r='1.8'/%3E%3Cpath d='M8 6.4h4v1.2H8zM20 6.4h4v1.2h-4z'/%3E%3C/svg%3E") repeat-x center/32px 14px}
 .seg{background:var(--surface-2);border:1px dashed var(--stitch)}
 .seg button{font-weight:700}
-.seg button[aria-pressed="true"].eva,.seg button[aria-pressed="true"].brian{color:var(--seg-on)}
+.seg button[aria-pressed="true"].eva,.seg button[aria-pressed="true"].brian,.seg button[aria-pressed="true"].beide{color:var(--seg-on)}
 .bar{height:12px;border:1px solid var(--line);padding:1px;background:var(--surface)}
 .bar span{border-radius:999px}
 .tabs{border-bottom:1.5px dashed var(--stitch)}
@@ -203,6 +204,7 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
         <p>Jede Aufgabe bekommt Punkte nach Dauer: 5 min = 1, 10 min = 2, 20 min = 3, 45 min = 5, 1 h = 8, 2 h = 13. Längeres lieber aufteilen.</p>
         <p>Beim Abhaken werden die Punkte verteilt: ein Drittel an die Person, die die Aufgabe angelegt hat, zwei Drittel an die Person, die sie erledigt. Wer selbst anlegt und selbst erledigt, bekommt alles. Das ergibt das gezogene Gewicht.</p>
         <p>Verzug: Erledigt die zuständige Person eine Aufgabe nach dem Fälligkeitstag, wandern pro Tag 10 % ihrer Erledigen-Punkte zur anlegenden Person, höchstens die Hälfte. Sie musste ja länger daran denken. Wer spontan einspringt, verliert nichts.</p>
+        <p>Gemeinsame Aufgaben (Zuständig: Beide): Die anlegende Person bekommt ihr Drittel, die Erledigen-Punkte werden 50/50 geteilt, egal wer abhakt.</p>
         <p>Einkaufsliste: je Artikel 0,5 P für die Person, die ihn einträgt, und 0,5 P für die Person, die ihn kauft.</p>
         <p>Überfällig zählt, was einer Person zugewiesen ist und nach dem Fälligkeitstag noch offen ist.</p>
       </div>
@@ -284,6 +286,8 @@ function asg(t){return t.assignee||t.createdBy}
 function lateDays(t,ts){if(!t.due)return 0;const d=new Date(ts);d.setHours(0,0,0,0);return Math.max(0,Math.round((d-parseDay(t.due))/DAY))}
 function credit(t){const r={Eva:0,Brian:0};if(!t.doneAt||!t.doneBy)return r;
   if(t.kind==='shop'){if(r[t.createdBy]!=null)r[t.createdBy]+=.5;if(r[t.doneBy]!=null)r[t.doneBy]+=.5;return r}
+  if(t.assignee==='Beide'){const third=t.pts/3,partner=PEOPLE.find(x=>x!==t.createdBy),sh=Math.min(.5,.1*lateDays(t,t.doneAt))*third;
+    if(r[t.createdBy]!=null)r[t.createdBy]+=2*third+sh;if(r[partner]!=null)r[partner]+=third-sh;return r}
   if(t.doneBy===t.createdBy){r[t.doneBy]+=t.pts;return r}
   const c=t.pts/3,d=t.pts*2/3,sh=t.doneBy===asg(t)?Math.min(.5,.1*lateDays(t,t.doneAt))*d:0;
   if(r[t.createdBy]!=null)r[t.createdBy]+=c+sh;if(r[t.doneBy]!=null)r[t.doneBy]+=d-sh;return r}
@@ -334,8 +338,8 @@ function rowHTML(t){
   if(dl&&!t.doneAt)meta.push('<span class="'+(dl.over?'due-over':'')+'">'+dl.txt+'</span>');
   const a=asg(t);
   if(t.doneAt&&t.doneBy)meta.push('<span><span class="dot '+t.createdBy+'"></span>von '+t.createdBy+' · erledigt <span class="dot '+t.doneBy+'"></span>'+t.doneBy+'</span>');
-  else meta.push('<span><span class="dot '+t.createdBy+'"></span>von '+t.createdBy+(a!==t.createdBy?' für <span class="dot '+a+'"></span>'+a:'')+'</span>');
-  if(over&&a!==t.createdBy){const ld=lateDays(t,Date.now());meta.push('<span class="due-over">'+(ld>=5?'max. Punkte an ':'−'+fmt(t.pts*2/3*.1)+' P/Tag an ')+t.createdBy+'</span>')}
+  else meta.push('<span><span class="dot '+t.createdBy+'"></span>von '+t.createdBy+(a==='Beide'?' für <span class="dot Eva"></span><span class="dot Brian"></span>beide':a!==t.createdBy?' für <span class="dot '+a+'"></span>'+a:'')+'</span>');
+  if(over&&a!==t.createdBy){const ld=lateDays(t,Date.now());meta.push('<span class="due-over">'+(ld>=5?'max. Punkte an ':'−'+fmt(t.pts*(a==='Beide'?1/3:2/3)*.1)+' P/Tag an ')+t.createdBy+'</span>')}
   return '<li class="task'+(t.doneAt?' done':'')+(over?' over':'')+'" data-id="'+esc(t.id)+'">'+
     '<button class="check" aria-label="'+(t.doneAt?'Wieder öffnen':'Als erledigt markieren')+'"><svg viewBox="0 0 16 16" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></button>'+
     '<button class="body" aria-label="Bearbeiten: '+esc(t.title)+'"><span class="t">'+(t.example?'<span class="pill ok" style="margin-right:6px">Beispiel</span>':'')+esc(t.title)+'</span><span class="meta">'+meta.join('<span aria-hidden="true">·</span>')+'</span></button>'+
@@ -364,7 +368,7 @@ function openSheet(t){
     (shopItem?'':'<div class="field"><span class="l">Dauer</span><div class="chips" id="eChips">'+chipsHTML(st.mins,'em')+'</div></div>'+
     '<div class="field"><label for="eDue">Fällig am</label><div class="row"><input id="eDue" type="date" value="'+esc(st.due)+'" style="flex:1"><button type="button" class="btn ghost" id="eNoDue">Kein Termin</button></div></div>')+
     '<div class="field"><span class="l">'+(shopItem?'Eingetragen von':'Angelegt von')+'</span><div class="seg" id="eBy">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.createdBy===p)+'">'+p+'</button>').join('')+'</div></div>'+
-    (shopItem?'':'<div class="field"><span class="l">Zuständig</span><div class="seg" id="eAsg">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.assignee===p)+'">'+p+'</button>').join('')+'</div></div>')+
+    (shopItem?'':'<div class="field"><span class="l">Zuständig</span><div class="seg" id="eAsg">'+PEOPLE.concat('Beide').map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.assignee===p)+'">'+p+'</button>').join('')+'</div></div>')+
     (t.doneAt?'<div class="field"><span class="l">'+(shopItem?'Gekauft von':'Erledigt von')+'</span><div class="seg" id="eDone">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.doneBy===p)+'">'+p+'</button>').join('')+'</div></div>':'')+
     '<div class="row end"><button type="button" class="btn danger" id="eDel">'+(armed?'Wirklich löschen?':'Löschen')+'</button><div class="row"><button type="button" class="btn ghost" id="eCancel">Abbrechen</button><button type="button" class="btn" id="eSave">Speichern</button></div></div>'+
     '</div></div>';
@@ -400,7 +404,7 @@ function renderBalance(){
 }
 function renderDash(){
   const now=Date.now(),e30=earned(now-30*DAY,now+1);
-  $('loadCards').innerHTML=PEOPLE.map(p=>{const over=tasks.filter(t=>isOver(t)&&asg(t)===p).length;
+  $('loadCards').innerHTML=PEOPLE.map(p=>{const over=tasks.filter(t=>isOver(t)&&(asg(t)===p||asg(t)==='Beide')).length;
     return '<div class="card"><div class="person"><span class="dot '+p+'"></span>'+p+'</div><div class="k">Gezogen · 30 Tage</div><div class="big num">'+fmt(e30[p])+'<small>P</small></div><div class="meta"><span class="pill '+(over?'bad':'ok')+'">'+over+' überfällig</span></div></div>'}).join('');
   const W=8,ws=weekStart(now),starts=[];for(let i=W-1;i>=0;i--)starts.push(ws-i*7*DAY);
   const weeks=starts.map(s=>({s,e:earned(s,s+7*DAY)}));
