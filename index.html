@@ -355,28 +355,29 @@ function renderList(){
 
 function openSheet(t){
   let st={title:t.title,mins:t.mins,due:t.due||'',createdBy:t.createdBy,assignee:asg(t),doneBy:t.doneBy},armed=false;
+  const shopItem=t.kind==='shop',noun=shopItem?'Artikel':'Aufgabe';
   const host=$('sheetHost');
   const draw=()=>{
-    host.innerHTML='<div class="sheet-bg" id="sbg"><div class="sheet" role="dialog" aria-modal="true" aria-label="Aufgabe bearbeiten">'+
-    '<h2>Aufgabe bearbeiten</h2>'+
-    '<div class="field"><label for="eTitle">Titel</label><input id="eTitle" type="text" value="'+esc(st.title)+'"></div>'+
-    '<div class="field"><span class="l">Dauer</span><div class="chips" id="eChips">'+chipsHTML(st.mins,'em')+'</div></div>'+
-    '<div class="field"><label for="eDue">Fällig am</label><div class="row"><input id="eDue" type="date" value="'+esc(st.due)+'" style="flex:1"><button type="button" class="btn ghost" id="eNoDue">Kein Termin</button></div></div>'+
-    '<div class="field"><span class="l">Angelegt von</span><div class="seg" id="eBy">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.createdBy===p)+'">'+p+'</button>').join('')+'</div></div>'+
-    '<div class="field"><span class="l">Zuständig</span><div class="seg" id="eAsg">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.assignee===p)+'">'+p+'</button>').join('')+'</div></div>'+
-    (t.doneAt?'<div class="field"><span class="l">Erledigt von</span><div class="seg" id="eDone">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.doneBy===p)+'">'+p+'</button>').join('')+'</div></div>':'')+
+    host.innerHTML='<div class="sheet-bg" id="sbg"><div class="sheet" role="dialog" aria-modal="true" aria-label="'+noun+' bearbeiten">'+
+    '<h2>'+noun+' bearbeiten</h2>'+
+    '<div class="field"><label for="eTitle">'+(shopItem?'Artikel':'Titel')+'</label><input id="eTitle" type="text" value="'+esc(st.title)+'"></div>'+
+    (shopItem?'':'<div class="field"><span class="l">Dauer</span><div class="chips" id="eChips">'+chipsHTML(st.mins,'em')+'</div></div>'+
+    '<div class="field"><label for="eDue">Fällig am</label><div class="row"><input id="eDue" type="date" value="'+esc(st.due)+'" style="flex:1"><button type="button" class="btn ghost" id="eNoDue">Kein Termin</button></div></div>')+
+    '<div class="field"><span class="l">'+(shopItem?'Eingetragen von':'Angelegt von')+'</span><div class="seg" id="eBy">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.createdBy===p)+'">'+p+'</button>').join('')+'</div></div>'+
+    (shopItem?'':'<div class="field"><span class="l">Zuständig</span><div class="seg" id="eAsg">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.assignee===p)+'">'+p+'</button>').join('')+'</div></div>')+
+    (t.doneAt?'<div class="field"><span class="l">'+(shopItem?'Gekauft von':'Erledigt von')+'</span><div class="seg" id="eDone">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.doneBy===p)+'">'+p+'</button>').join('')+'</div></div>':'')+
     '<div class="row end"><button type="button" class="btn danger" id="eDel">'+(armed?'Wirklich löschen?':'Löschen')+'</button><div class="row"><button type="button" class="btn ghost" id="eCancel">Abbrechen</button><button type="button" class="btn" id="eSave">Speichern</button></div></div>'+
     '</div></div>';
-    const keep=()=>{st.title=$('eTitle').value;st.due=$('eDue').value};
-    $('eChips').querySelectorAll('[data-em]').forEach(b=>b.onclick=()=>{keep();st.mins=+b.dataset.em;draw()});
+    const keep=()=>{st.title=$('eTitle').value;if($('eDue'))st.due=$('eDue').value};
+    if($('eChips'))$('eChips').querySelectorAll('[data-em]').forEach(b=>b.onclick=()=>{keep();st.mins=+b.dataset.em;draw()});
     $('eBy').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{keep();st.createdBy=b.dataset.p;draw()});
-    $('eAsg').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{keep();st.assignee=b.dataset.p;draw()});
+    if($('eAsg'))$('eAsg').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{keep();st.assignee=b.dataset.p;draw()});
     if($('eDone'))$('eDone').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{keep();st.doneBy=b.dataset.p;draw()});
-    $('eNoDue').onclick=()=>{keep();st.due='';draw()};
+    if($('eNoDue'))$('eNoDue').onclick=()=>{keep();st.due='';draw()};
     $('eCancel').onclick=close;
     $('sbg').onclick=e=>{if(e.target.id==='sbg')close()};
     $('eDel').onclick=async()=>{keep();if(!armed){armed=true;draw();return}close();try{await api('delete',{id:t.id});toast('Gelöscht')}catch(e){fail(e)}};
-    $('eSave').onclick=async()=>{keep();const title=st.title.trim();if(!title){$('eTitle').focus();toast('Der Titel darf nicht leer sein.');return}
+    $('eSave').onclick=async()=>{keep();const title=st.title.trim();if(!title){$('eTitle').focus();toast(shopItem?'Der Artikel braucht einen Namen.':'Der Titel darf nicht leer sein.');return}
       close();try{await api('update',{id:t.id,title,mins:st.mins,due:st.due||null,createdBy:st.createdBy,assignee:st.assignee,doneBy:st.doneBy})}catch(e){fail(e)}};
   };
   const close=()=>{host.innerHTML='';document.removeEventListener('keydown',esck)};
@@ -420,13 +421,11 @@ function shopRow(t){
   const meta='<span><span class="dot '+t.createdBy+'"></span>'+t.createdBy+'</span>'+(t.doneAt?'<span aria-hidden="true">·</span><span>gekauft von <span class="dot '+t.doneBy+'"></span>'+t.doneBy+' · '+when+'</span>':'');
   return '<li class="task'+(t.doneAt?' done':'')+'" data-id="'+esc(t.id)+'">'+
     '<button class="check" aria-label="'+(t.doneAt?'Wieder auf die Liste':'Als gekauft markieren')+'"><svg viewBox="0 0 16 16" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg></button>'+
-    '<div class="body" style="cursor:default"><span class="t">'+esc(t.title)+'</span><span class="meta">'+meta+'</span></div>'+
-    '<button class="x" aria-label="Entfernen: '+esc(t.title)+'">×</button></li>';
+    '<button class="body" aria-label="Bearbeiten: '+esc(t.title)+'"><span class="t">'+esc(t.title)+'</span><span class="meta">'+meta+'</span></button></li>';
 }
 function bindShop(ul){ul.querySelectorAll('.task').forEach(li=>{const t=shop.find(x=>x.id===li.dataset.id);if(!t)return;
   li.querySelector('.check').onclick=()=>toggle(t);
-  const x=li.querySelector('.x');x.onclick=async()=>{if(!x.classList.contains('armed')){x.classList.add('armed');x.textContent='Löschen?';setTimeout(()=>{x.classList.remove('armed');x.textContent='×'},3000);return}
-    try{await api('delete',{id:t.id});toast('Entfernt')}catch(e){fail(e)}}})}
+  li.querySelector('.body').onclick=()=>openSheet(t)})}
 function renderShop(){
   const open=shop.filter(t=>!t.doneAt).sort((a,b)=>a.createdAt-b.createdAt);
   const since=Date.now()-7*DAY;const done=shop.filter(t=>t.doneAt&&t.doneAt>=since).sort((a,b)=>b.doneAt-a.doneAt);
