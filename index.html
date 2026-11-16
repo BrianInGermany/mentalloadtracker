@@ -204,7 +204,7 @@ h2{font-weight:400;font-size:19px;letter-spacing:.01em}
         <p>Jede Aufgabe bekommt Punkte nach Dauer: 5 min = 1, 10 min = 2, 20 min = 3, 45 min = 5, 1 h = 8, 2 h = 13. Längeres lieber aufteilen.</p>
         <p>Beim Abhaken werden die Punkte verteilt: ein Drittel an die Person, die die Aufgabe angelegt hat, zwei Drittel an die Person, die sie erledigt. Wer selbst anlegt und selbst erledigt, bekommt alles. Das ergibt das gezogene Gewicht.</p>
         <p>Verzug: Erledigt die zuständige Person eine Aufgabe nach dem Fälligkeitstag, wandern pro Tag 10 % ihrer Erledigen-Punkte zur anlegenden Person, höchstens die Hälfte. Sie musste ja länger daran denken. Wer spontan einspringt, verliert nichts.</p>
-        <p>Gemeinsame Aufgaben (Zuständig: Beide): Die anlegende Person bekommt ihr Drittel, die Erledigen-Punkte werden 50/50 geteilt, egal wer abhakt.</p>
+        <p>Gemeinsame Aufgaben (Zuständig: Beide): Beim Abhaken steht „Erledigt von: Beide“. Die anlegende Person bekommt ihr Drittel, die Erledigen-Punkte werden 50/50 geteilt. Wird „Erledigt von“ auf Eva oder Brian umgestellt, bekommt diese Person die vollen Erledigen-Punkte.</p>
         <p>Einkaufsliste: je Artikel 0,5 P für die Person, die ihn einträgt, und 0,5 P für die Person, die ihn kauft.</p>
         <p>Überfällig zählt, was einer Person zugewiesen ist und nach dem Fälligkeitstag noch offen ist.</p>
       </div>
@@ -286,7 +286,7 @@ function asg(t){return t.assignee||t.createdBy}
 function lateDays(t,ts){if(!t.due)return 0;const d=new Date(ts);d.setHours(0,0,0,0);return Math.max(0,Math.round((d-parseDay(t.due))/DAY))}
 function credit(t){const r={Eva:0,Brian:0};if(!t.doneAt||!t.doneBy)return r;
   if(t.kind==='shop'){if(r[t.createdBy]!=null)r[t.createdBy]+=.5;if(r[t.doneBy]!=null)r[t.doneBy]+=.5;return r}
-  if(t.assignee==='Beide'){const third=t.pts/3,partner=PEOPLE.find(x=>x!==t.createdBy),sh=Math.min(.5,.1*lateDays(t,t.doneAt))*third;
+  if(t.doneBy==='Beide'){const third=t.pts/3,partner=PEOPLE.find(x=>x!==t.createdBy),sh=Math.min(.5,.1*lateDays(t,t.doneAt))*third;
     if(r[t.createdBy]!=null)r[t.createdBy]+=2*third+sh;if(r[partner]!=null)r[partner]+=third-sh;return r}
   if(t.doneBy===t.createdBy){r[t.doneBy]+=t.pts;return r}
   const c=t.pts/3,d=t.pts*2/3,sh=t.doneBy===asg(t)?Math.min(.5,.1*lateDays(t,t.doneAt))*d:0;
@@ -337,7 +337,7 @@ function rowHTML(t){
   const meta=[t.mins+' min'];
   if(dl&&!t.doneAt)meta.push('<span class="'+(dl.over?'due-over':'')+'">'+dl.txt+'</span>');
   const a=asg(t);
-  if(t.doneAt&&t.doneBy)meta.push('<span><span class="dot '+t.createdBy+'"></span>von '+t.createdBy+' · erledigt <span class="dot '+t.doneBy+'"></span>'+t.doneBy+'</span>');
+  if(t.doneAt&&t.doneBy)meta.push('<span><span class="dot '+t.createdBy+'"></span>von '+t.createdBy+' · erledigt '+(t.doneBy==='Beide'?'<span class="dot Eva"></span><span class="dot Brian"></span>gemeinsam':'<span class="dot '+t.doneBy+'"></span>'+t.doneBy)+'</span>');
   else meta.push('<span><span class="dot '+t.createdBy+'"></span>von '+t.createdBy+(a==='Beide'?' für <span class="dot Eva"></span><span class="dot Brian"></span>beide':a!==t.createdBy?' für <span class="dot '+a+'"></span>'+a:'')+'</span>');
   if(over&&a!==t.createdBy){const ld=lateDays(t,Date.now());meta.push('<span class="due-over">'+(ld>=5?'max. Punkte an ':'−'+fmt(t.pts*(a==='Beide'?1/3:2/3)*.1)+' P/Tag an ')+t.createdBy+'</span>')}
   return '<li class="task'+(t.doneAt?' done':'')+(over?' over':'')+'" data-id="'+esc(t.id)+'">'+
@@ -369,7 +369,7 @@ function openSheet(t){
     '<div class="field"><label for="eDue">Fällig am</label><div class="row"><input id="eDue" type="date" value="'+esc(st.due)+'" style="flex:1"><button type="button" class="btn ghost" id="eNoDue">Kein Termin</button></div></div>')+
     '<div class="field"><span class="l">'+(shopItem?'Eingetragen von':'Angelegt von')+'</span><div class="seg" id="eBy">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.createdBy===p)+'">'+p+'</button>').join('')+'</div></div>'+
     (shopItem?'':'<div class="field"><span class="l">Zuständig</span><div class="seg" id="eAsg">'+PEOPLE.concat('Beide').map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.assignee===p)+'">'+p+'</button>').join('')+'</div></div>')+
-    (t.doneAt?'<div class="field"><span class="l">'+(shopItem?'Gekauft von':'Erledigt von')+'</span><div class="seg" id="eDone">'+PEOPLE.map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.doneBy===p)+'">'+p+'</button>').join('')+'</div></div>':'')+
+    (t.doneAt?'<div class="field"><span class="l">'+(shopItem?'Gekauft von':'Erledigt von')+'</span><div class="seg" id="eDone">'+(!shopItem&&(st.assignee==='Beide'||t.doneBy==='Beide')?PEOPLE.concat('Beide'):PEOPLE).map(p=>'<button type="button" class="'+p.toLowerCase()+'" data-p="'+p+'" aria-pressed="'+(st.doneBy===p)+'">'+p+'</button>').join('')+'</div></div>':'')+
     '<div class="row end"><button type="button" class="btn danger" id="eDel">'+(armed?'Wirklich löschen?':'Löschen')+'</button><div class="row"><button type="button" class="btn ghost" id="eCancel">Abbrechen</button><button type="button" class="btn" id="eSave">Speichern</button></div></div>'+
     '</div></div>';
     const keep=()=>{st.title=$('eTitle').value;if($('eDue'))st.due=$('eDue').value};
